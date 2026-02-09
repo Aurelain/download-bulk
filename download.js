@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { finished } from 'node:stream/promises';
+import {Readable} from 'node:stream';
+import {finished} from 'node:stream/promises';
 
 // =====================================================================================================================
 //  D E C L A R A T I O N S
@@ -9,6 +9,7 @@ import { finished } from 'node:stream/promises';
 const INPUT_FILE = 'input.txt';
 const OUTPUT_DIR = 'output';
 const WAIT = 100; // milliseconds
+const NAME_POLICY = convertDDMMYYYYtoYYYYMMDD;
 
 // =====================================================================================================================
 //  P U B L I C
@@ -22,14 +23,13 @@ async function download() {
 
     const content = fs.readFileSync(INPUT_FILE, 'utf-8');
     const urls = content.split(/\r?\n/).filter(line => line.trim().startsWith('http'));
-    console.log(`Processing ${urls.length} downloads...\n`);
     const {length} = urls;
     for (let i = 0; i < length; i++) {
-        await downloadFile(urls[i], i+1, length);
+        await downloadFile(urls[i], i + 1, length);
         await sleep(WAIT);
     }
-    console.log('Done.');
-}
+    console.log(`Downloaded ${length} files.`);
+};
 
 // =====================================================================================================================
 //  P R I V A T E
@@ -57,9 +57,7 @@ async function attemptDownload(url) {
     if (!response.ok) {
         throw new Error(`Status ${response.status}`);
     }
-
-    // Extract filename or fallback to a timestamp
-    const fileName = path.basename(new URL(url).pathname) || `file_${Date.now()}`;
+    const fileName = NAME_POLICY(url);
     const filePath = path.join(OUTPUT_DIR, fileName);
     if (fs.existsSync(filePath)) {
         throw new Error(`Overwrite!`);
@@ -71,9 +69,27 @@ async function attemptDownload(url) {
 /**
  *
  */
-const sleep = (ms) => {
+function stripStrangeSymbols(url) {
+    return url.replace(/\W/g, '');
+}
+
+/**
+ *
+ */
+function convertDDMMYYYYtoYYYYMMDD(url) {
+    const matched = url.match(/(\d+)\D(\d+)\D(\d+)/);
+    if (!matched) {
+        throw new Error(`Not DDMMYYYY!`);
+    }
+    return matched[3] + '-' + matched[2] + '-' + matched[1] + '.csv';
+}
+
+/**
+ *
+ */
+function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-};
+}
 
 // =====================================================================================================================
 //  R U N
